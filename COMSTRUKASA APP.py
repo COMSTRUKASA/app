@@ -216,7 +216,7 @@ def page_login(users):
                 st.rerun()
             else:
                 st.error("Usuário ou senha incorretos.")
-        st.caption("💡 Demo: admin / admin123 | joao.silva / joao123")
+        st.caption("💡 o Aplicativo se encontra em fase de Desenvolvimento, se encontrar algum erro contate: +55 (43) 99696-0065")
 
 # ── Sidebar ─────────────────────────────────────────────────────────────────
 def sidebar_menu(user_data):
