@@ -207,7 +207,7 @@ def page_login(users):
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown("##### Acesse sua conta")
-        usuario = st.text_input("👤 Usuário", placeholder="ex: joao.silva")
+        usuario = st.text_input("👤 Usuário", placeholder="ex: Gustavo")
         senha   = st.text_input("🔒 Senha", type="password", placeholder="••••••••")
         if st.button("Entrar →", use_container_width=True):
             if usuario in users and users[usuario]["senha"] == hash_pw(senha):
