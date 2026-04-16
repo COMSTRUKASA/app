@@ -67,6 +67,14 @@ def seed_users():
                 "salario": 0.00,
                 "meta_vendas": 15000.00,
             },
+            "Wagner": {
+                "nome": "Wagner",
+                "senha": hash_pw("senha"),
+                "role": "funcionario",
+                "funcao": "Assistente Administrativo",
+                "salario": 650.00,
+                "meta_vendas": 0.00,
+            },
         }
         save_json(USERS_FILE, users)
     return users
@@ -338,7 +346,7 @@ def page_ponto(username, user_data):
     st.markdown(f"""
     <div class='hero'>
       <h1>⏱️ Livro Ponto Digital</h1>
-      <p>Registre sua jornada · {date.today().strftime("%d/%m/%Y")}</p>
+      <p>Registre seu horário · {date.today().strftime("%d/%m/%Y")}</p>
     </div>
     """, unsafe_allow_html=True)
 
