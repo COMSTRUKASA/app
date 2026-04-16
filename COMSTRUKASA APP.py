@@ -224,7 +224,7 @@ def sidebar_menu(user_data):
         st.markdown(f"""
         <div style='padding:.8rem 0 1.2rem;'>
           <div style='font-size:2rem;text-align:center;'>🏗️</div>
-          <div style='text-align:center;font-family:"Barlow Condensed",sans-serif;font-size:1.3rem;font-weight:800;color:#e8520a;'>ConstroApp</div>
+          <div style='text-align:center;font-family:"Barlow Condensed",sans-serif;font-size:1.3rem;font-weight:800;color:#e8520a;'>COMSTRUKASA</div>
           <hr style='margin:.6rem 0;'/>
           <div style='font-size:.95rem;font-weight:700;color:#e8e0d4;'>{user_data["nome"]}</div>
           <div style='font-size:.8rem;color:#b0bec5;'>{user_data["funcao"]}</div>
