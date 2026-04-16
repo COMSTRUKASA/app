@@ -197,7 +197,7 @@ def page_login(users):
       <div style='background:#1a2b3c;border-radius:16px;padding:2.5rem 2.8rem;width:100%;max-width:420px;border:1px solid #2a3f52;'>
         <div style='text-align:center;margin-bottom:1.8rem;'>
           <span style='font-size:3rem;'>🏗️</span>
-          <h1 style='font-family:"Barlow Condensed",sans-serif;font-weight:800;color:#e8e0d4;font-size:1.8rem;margin:.4rem 0 0;'>ConstroApp</h1>
+          <h1 style='font-family:"Barlow Condensed",sans-serif;font-weight:800;color:#e8e0d4;font-size:1.8rem;margin:.4rem 0 0;'>COMSTRUKASA</h1>
           <p style='color:#b0bec5;font-size:.9rem;margin:.3rem 0 0;'>Sistema de Gestão de Funcionários</p>
         </div>
       </div>
