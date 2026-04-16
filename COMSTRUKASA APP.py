@@ -352,8 +352,6 @@ def page_ponto(username, user_data):
 
     marcacoes = [
         ("🟢 Entrada",              "entrada"),
-        ("☕ Saída Café (manhã)",    "saida_cafe_manha"),
-        ("🔙 Retorno Café",          "retorno_cafe_manha"),
         ("🍽️ Saída Almoço",          "saida_almoco"),
         ("🔙 Retorno Almoço",        "retorno_almoco"),
         ("☕ Saída Café (tarde)",    "saida_cafe_tarde"),
