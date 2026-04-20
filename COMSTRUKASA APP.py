@@ -1,11 +1,17 @@
 import streamlit as st
 import json
 import os
-import io
-import csv
 from datetime import datetime, date, time
 from zoneinfo import ZoneInfo
 import urllib.parse
+from io import BytesIO
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.lib.units import mm
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+from reportlab.pdfgen import canvas as rl_canvas
 
 st.set_page_config(
     page_title="COMSTRUKASA",
@@ -71,6 +77,20 @@ section[data-testid="stSidebar"] {
     0%   { transform:scale(0.85); opacity:0; }
     60%  { transform:scale(1.04); opacity:1; }
     100% { transform:scale(1); }
+}
+@keyframes avatar-ring {
+    0%   { box-shadow: 0 0 0 0 rgba(255,109,0,0.7); }
+    70%  { box-shadow: 0 0 0 10px rgba(255,109,0,0); }
+    100% { box-shadow: 0 0 0 0 rgba(255,109,0,0); }
+}
+@keyframes avatar-float {
+    0%,100% { transform: translateY(0px) rotate(0deg); }
+    33%      { transform: translateY(-4px) rotate(-1deg); }
+    66%      { transform: translateY(-2px) rotate(1deg); }
+}
+@keyframes avatar-glow {
+    0%,100% { filter: drop-shadow(0 0 4px rgba(255,109,0,0.4)); }
+    50%      { filter: drop-shadow(0 0 14px rgba(255,109,0,0.9)); }
 }
 
 /* ── Logo ── */
@@ -453,41 +473,201 @@ def logout():
 # ══════════════════════════════════════════════════════════
 # DOWNLOAD CSV MENSAL
 # ══════════════════════════════════════════════════════════
-def gerar_csv_mensal(dados, usuario, ano, mes):
-    """Gera CSV com todos os registros de ponto do mês selecionado."""
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(["Funcionário","Data","Marcação","Hora"])
-    nome = FUNCIONARIOS[usuario]["nome"]
-    registros = dados["pontos"].get(usuario, {})
-    prefixo = f"{ano}-{mes:02d}"
-    for d in sorted(registros.keys()):
-        if not d.startswith(prefixo):
-            continue
-        reg = registros[d]
-        data_fmt = datetime.strptime(d, "%Y-%m-%d").strftime("%d/%m/%Y")
-        for m in MARCACOES:
-            h = reg.get(m, "–")
-            writer.writerow([nome, data_fmt, m, h])
-    return output.getvalue().encode("utf-8-sig")
+def _pdf_canvas_header(c, width, height, titulo, subtitulo):
+    """Desenha cabeçalho laranja premium no topo da página."""
+    # Faixa laranja
+    c.setFillColorRGB(0.90, 0.33, 0.0)
+    c.rect(0, height - 52*mm, width, 52*mm, fill=1, stroke=0)
+    # Logo / título
+    c.setFillColorRGB(1,1,1)
+    c.setFont("Helvetica-Bold", 22)
+    c.drawString(14*mm, height - 20*mm, "COMSTRUKASA")
+    c.setFont("Helvetica", 9)
+    c.drawString(14*mm, height - 28*mm, "Materiais para Construção")
+    # Linha branca fina
+    c.setStrokeColorRGB(1,1,1,0.35)
+    c.setLineWidth(0.5)
+    c.line(14*mm, height - 32*mm, width - 14*mm, height - 32*mm)
+    # Subtítulo do relatório
+    c.setFont("Helvetica-Bold", 12)
+    c.drawString(14*mm, height - 41*mm, titulo)
+    c.setFont("Helvetica", 9)
+    c.drawRightString(width - 14*mm, height - 41*mm, subtitulo)
 
-def gerar_csv_todos_mensal(dados, ano, mes):
-    """Gera CSV com todos os funcionários no mês."""
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(["Funcionário","Função","Data","Marcação","Hora"])
-    prefixo = f"{ano}-{mes:02d}"
+def _cor_laranja():    return colors.HexColor("#E65100")
+def _cor_laranja_lt(): return colors.HexColor("#FFF3E0")
+def _cor_cinza():      return colors.HexColor("#263238")
+def _cor_cinza_lt():   return colors.HexColor("#ECEFF1")
+
+def gerar_pdf_mensal(dados, usuario, ano, mes):
+    """Gera PDF bonito do ponto individual."""
+    func     = FUNCIONARIOS[usuario]
+    nome     = func["nome"]
+    funcao   = func["funcao"]
+    mes_nome = MESES_PT[mes]
+    prefixo  = f"{ano}-{mes:02d}"
+
+    buf = BytesIO()
+    W, H = A4
+
+    c = rl_canvas.Canvas(buf, pagesize=A4)
+
+    def nova_pagina(primeira=False):
+        if not primeira:
+            c.showPage()
+        titulo   = f"Livro Ponto — {nome}"
+        subtitulo = f"{funcao}  ·  {mes_nome} {ano}"
+        _pdf_canvas_header(c, W, H, titulo, subtitulo)
+        # Linha fina laranja embaixo do header
+        c.setStrokeColor(_cor_laranja())
+        c.setLineWidth(1.2)
+        c.line(0, H - 53*mm, W, H - 53*mm)
+        return H - 60*mm  # y inicial do conteúdo
+
+    y = nova_pagina(primeira=True)
+    registros = dados["pontos"].get(usuario, {})
+    datas = [d for d in sorted(registros.keys()) if d.startswith(prefixo)]
+
+    if not datas:
+        c.setFillColor(_cor_cinza())
+        c.setFont("Helvetica", 11)
+        c.drawCentredString(W/2, y - 20*mm, "Nenhum registro encontrado para este período.")
+    else:
+        for d in datas:
+            reg      = registros[d]
+            data_fmt = datetime.strptime(d, "%Y-%m-%d").strftime("%d/%m/%Y")
+            dia_sem  = ["Segunda","Terça","Quarta","Quinta","Sexta","Sábado","Domingo"][datetime.strptime(d,"%Y-%m-%d").weekday()]
+
+            # Precisa de nova página?
+            bloco_h = 9*mm + len(MARCACOES)*7*mm + 6*mm
+            if y - bloco_h < 20*mm:
+                y = nova_pagina()
+
+            # Cabeçalho do dia — faixa cinza escura
+            c.setFillColor(_cor_cinza())
+            c.roundRect(14*mm, y - 8*mm, W - 28*mm, 8*mm, 2*mm, fill=1, stroke=0)
+            c.setFillColor(colors.white)
+            c.setFont("Helvetica-Bold", 10)
+            c.drawString(18*mm, y - 5.5*mm, f"{dia_sem}, {data_fmt}")
+            y -= 9*mm
+
+            # Linhas de marcação
+            for i, m in enumerate(MARCACOES):
+                h = reg.get(m, "–")
+                tem = h != "–"
+                bg = _cor_laranja_lt() if i % 2 == 0 else colors.white
+                c.setFillColor(bg)
+                c.rect(14*mm, y - 6.5*mm, W - 28*mm, 6.5*mm, fill=1, stroke=0)
+                # Emoji / marcador
+                c.setFillColor(_cor_laranja() if tem else colors.HexColor("#9E9E9E"))
+                c.circle(19*mm, y - 3.2*mm, 1.8*mm, fill=1, stroke=0)
+                # Nome da marcação
+                c.setFillColor(_cor_cinza())
+                c.setFont("Helvetica", 9)
+                c.drawString(23*mm, y - 5*mm, m)
+                # Hora
+                c.setFont("Helvetica-Bold" if tem else "Helvetica", 9)
+                c.setFillColor(_cor_laranja() if tem else colors.HexColor("#9E9E9E"))
+                c.drawRightString(W - 16*mm, y - 5*mm, h)
+                y -= 6.5*mm
+
+            y -= 5*mm  # espaço entre dias
+
+    # Rodapé
+    c.setFont("Helvetica", 7.5)
+    c.setFillColor(colors.HexColor("#9E9E9E"))
+    c.drawCentredString(W/2, 10*mm, f"COMSTRUKASA  ·  Gerado em {datetime.now().strftime('%d/%m/%Y %H:%M')}  ·  {nome}")
+    c.setStrokeColor(_cor_laranja())
+    c.setLineWidth(0.8)
+    c.line(14*mm, 15*mm, W - 14*mm, 15*mm)
+
+    c.save()
+    return buf.getvalue()
+
+
+def gerar_pdf_todos_mensal(dados, ano, mes):
+    """Gera PDF com todos os funcionários no mês."""
+    mes_nome = MESES_PT[mes]
+    prefixo  = f"{ano}-{mes:02d}"
+    buf = BytesIO()
+    W, H = A4
+    c = rl_canvas.Canvas(buf, pagesize=A4)
+    primeiro = True
+
     for uid, func in FUNCIONARIOS.items():
         registros = dados["pontos"].get(uid, {})
-        for d in sorted(registros.keys()):
-            if not d.startswith(prefixo):
-                continue
-            reg = registros[d]
+        datas = [d for d in sorted(registros.keys()) if d.startswith(prefixo)]
+        if not datas:
+            continue
+
+        if not primeiro:
+            c.showPage()
+        primeiro = False
+
+        titulo    = f"Ponto — {func['nome']}"
+        subtitulo = f"{func['funcao']}  ·  {mes_nome} {ano}"
+        _pdf_canvas_header(c, W, H, titulo, subtitulo)
+        c.setStrokeColor(_cor_laranja())
+        c.setLineWidth(1.2)
+        c.line(0, H - 53*mm, W, H - 53*mm)
+        y = H - 60*mm
+
+        for d in datas:
+            reg      = registros[d]
             data_fmt = datetime.strptime(d, "%Y-%m-%d").strftime("%d/%m/%Y")
-            for m in MARCACOES:
-                h = reg.get(m, "–")
-                writer.writerow([func["nome"], func["funcao"], data_fmt, m, h])
-    return output.getvalue().encode("utf-8-sig")
+            dia_sem  = ["Segunda","Terça","Quarta","Quinta","Sexta","Sábado","Domingo"][datetime.strptime(d,"%Y-%m-%d").weekday()]
+
+            bloco_h = 9*mm + len(MARCACOES)*7*mm + 6*mm
+            if y - bloco_h < 20*mm:
+                c.showPage()
+                _pdf_canvas_header(c, W, H, titulo, subtitulo)
+                c.setStrokeColor(_cor_laranja())
+                c.setLineWidth(1.2)
+                c.line(0, H - 53*mm, W, H - 53*mm)
+                y = H - 60*mm
+
+            c.setFillColor(_cor_cinza())
+            c.roundRect(14*mm, y - 8*mm, W - 28*mm, 8*mm, 2*mm, fill=1, stroke=0)
+            c.setFillColor(colors.white)
+            c.setFont("Helvetica-Bold", 10)
+            c.drawString(18*mm, y - 5.5*mm, f"{dia_sem}, {data_fmt}")
+            y -= 9*mm
+
+            for i, m in enumerate(MARCACOES):
+                h   = reg.get(m, "–")
+                tem = h != "–"
+                bg  = _cor_laranja_lt() if i % 2 == 0 else colors.white
+                c.setFillColor(bg)
+                c.rect(14*mm, y - 6.5*mm, W - 28*mm, 6.5*mm, fill=1, stroke=0)
+                c.setFillColor(_cor_laranja() if tem else colors.HexColor("#9E9E9E"))
+                c.circle(19*mm, y - 3.2*mm, 1.8*mm, fill=1, stroke=0)
+                c.setFillColor(_cor_cinza())
+                c.setFont("Helvetica", 9)
+                c.drawString(23*mm, y - 5*mm, m)
+                c.setFont("Helvetica-Bold" if tem else "Helvetica", 9)
+                c.setFillColor(_cor_laranja() if tem else colors.HexColor("#9E9E9E"))
+                c.drawRightString(W - 16*mm, y - 5*mm, h)
+                y -= 6.5*mm
+
+            y -= 5*mm
+
+        c.setFont("Helvetica", 7.5)
+        c.setFillColor(colors.HexColor("#9E9E9E"))
+        c.drawCentredString(W/2, 10*mm, f"COMSTRUKASA  ·  Gerado em {datetime.now().strftime('%d/%m/%Y %H:%M')}  ·  {func['nome']}")
+        c.setStrokeColor(_cor_laranja())
+        c.setLineWidth(0.8)
+        c.line(14*mm, 15*mm, W - 14*mm, 15*mm)
+
+    if primeiro:
+        # Nenhum registro
+        titulo = f"Ponto Geral — {mes_nome} {ano}"
+        _pdf_canvas_header(c, W, H, titulo, "Todos os Funcionários")
+        c.setFont("Helvetica", 11)
+        c.setFillColor(_cor_cinza())
+        c.drawCentredString(W/2, H/2, "Nenhum registro encontrado para este período.")
+
+    c.save()
+    return buf.getvalue()
 
 # ══════════════════════════════════════════════════════════
 # BLOQUEIO
@@ -605,12 +785,12 @@ def tela_ponto(usuario, dados):
         mes_idx   = st.selectbox("Mês", mes_nomes, index=mes_atual - 1, key=f"mes_{usuario}")
         mes_sel   = mes_nomes.index(mes_idx) + 1
 
-    csv_bytes = gerar_csv_mensal(dados, usuario, ano_sel, mes_sel)
+    pdf_bytes = gerar_pdf_mensal(dados, usuario, ano_sel, mes_sel)
     st.download_button(
-        label=f"⬇️  Baixar Ponto — {mes_idx} {ano_sel}",
-        data=csv_bytes,
-        file_name=f"ponto_{FUNCIONARIOS[usuario]['nome'].split()[0].lower()}_{ano_sel}_{mes_sel:02d}.csv",
-        mime="text/csv",
+        label=f"📄  Baixar PDF — {mes_idx} {ano_sel}",
+        data=pdf_bytes,
+        file_name=f"ponto_{FUNCIONARIOS[usuario]['nome'].split()[0].lower()}_{ano_sel}_{mes_sel:02d}.pdf",
+        mime="application/pdf",
         use_container_width=True
     )
 
@@ -669,7 +849,7 @@ def painel_funcionario(usuario, func, dados):
     st.markdown(f"""
     <div class="painel-header">
         <div style="display:flex;align-items:center;gap:14px;">
-            <div class="ph-avatar">{av}</div>
+            <div class="ph-avatar" style="animation:avatar-glow 3s ease infinite, avatar-float 4s ease-in-out infinite;">{av}</div>
             <div>
                 <div class="ph-name">{func['nome']}</div>
                 <div class="ph-sub">🏗️ COMSTRUKASA</div>
@@ -773,12 +953,12 @@ def painel_admin(usuario, dados):
             mes_dl = mes_nomes.index(mes_dl_nome) + 1
         with col3:
             st.markdown("<br>", unsafe_allow_html=True)
-            csv_todos = gerar_csv_todos_mensal(dados, ano_dl, mes_dl)
+            pdf_todos = gerar_pdf_todos_mensal(dados, ano_dl, mes_dl)
             st.download_button(
-                label=f"⬇️ Baixar Todos",
-                data=csv_todos,
-                file_name=f"ponto_todos_{ano_dl}_{mes_dl:02d}.csv",
-                mime="text/csv",
+                label=f"📄 PDF Geral",
+                data=pdf_todos,
+                file_name=f"ponto_todos_{ano_dl}_{mes_dl:02d}.pdf",
+                mime="application/pdf",
                 use_container_width=True
             )
 
@@ -812,12 +992,12 @@ def painel_admin(usuario, dados):
                         st.divider()
 
                 # Download individual
-                csv_ind = gerar_csv_mensal(dados, uid, ano_dl, mes_dl)
+                pdf_ind = gerar_pdf_mensal(dados, uid, ano_dl, mes_dl)
                 st.download_button(
-                    label=f"⬇️ Ponto de {func['nome'].split()[0]} — {mes_dl_nome}",
-                    data=csv_ind,
-                    file_name=f"ponto_{uid}_{ano_dl}_{mes_dl:02d}.csv",
-                    mime="text/csv",
+                    label=f"📄 PDF de {func['nome'].split()[0]} — {mes_dl_nome}",
+                    data=pdf_ind,
+                    file_name=f"ponto_{uid}_{ano_dl}_{mes_dl:02d}.pdf",
+                    mime="application/pdf",
                     key=f"dl_{uid}_{ano_dl}_{mes_dl}"
                 )
 
@@ -875,54 +1055,67 @@ def render_sidebar(func, usuario):
     with st.sidebar:
         av = avatar(func["nome"])
         primeiro = func["nome"].split()[0]
+        admin_badge = "<div style='font-size:.68rem;color:#FF6D00 !important;margin-top:3px;letter-spacing:1px;font-weight:700;'>🛡️ ADMINISTRADOR</div>" if func['is_admin'] else ""
         st.markdown(f"""
-        <div style="padding:.4rem 0 .2rem;">
-            <div style="width:44px;height:44px;border-radius:50%;
-                background:rgba(255,109,0,0.1);
-                border:1.5px solid rgba(255,109,0,0.28);
+        <div style="padding:.6rem 0 .4rem;text-align:center;">
+            <div style="
+                width:62px;height:62px;border-radius:50%;
+                background:radial-gradient(circle at 35% 35%, #3a1800, #1a0900);
+                border:2px solid rgba(255,109,0,0.5);
                 display:flex;align-items:center;justify-content:center;
                 font-family:'Rajdhani',sans-serif;font-weight:700;
-                font-size:1rem;color:#FF8F00;margin-bottom:.5rem;">{av}</div>
-            <div style="font-family:'Rajdhani',sans-serif;font-size:1.05rem;
-                font-weight:600;color:#FF8F00 !important;letter-spacing:.8px;">{primeiro}</div>
-            <div style="font-size:.75rem;color:#444 !important;">{func['funcao']}</div>
-            {"<div style='font-size:.68rem;color:#c62828 !important;margin-top:2px;'>🛡️ ADMIN</div>" if func['is_admin'] else ""}
+                font-size:1.3rem;color:#FF8F00;
+                margin:0 auto .6rem;
+                animation:avatar-ring 2.5s ease infinite, avatar-float 4s ease-in-out infinite, avatar-glow 3s ease infinite;
+                position:relative;
+            ">{av}<div style="
+                position:absolute;bottom:2px;right:2px;
+                width:11px;height:11px;border-radius:50%;
+                background:#4caf50;border:2px solid #0f0f0f;
+                box-shadow:0 0 6px #4caf50;
+            "></div></div>
+            <div style="font-family:'Rajdhani',sans-serif;font-size:1.1rem;
+                font-weight:700;color:#FF8F00 !important;letter-spacing:1px;">{primeiro}</div>
+            <div style="font-size:.73rem;color:#555 !important;margin-top:1px;">{func['funcao']}</div>
+            {admin_badge}
         </div>
         """, unsafe_allow_html=True)
         st.divider()
 
         # Botão SAIR animado
         st.markdown("""
-        <div class="logout-btn-wrap">
-            <style>
-            div[data-testid="stSidebar"] .stButton.logout-trigger > button {
-                background: linear-gradient(270deg, #c62828, #e53935, #ff5252, #e53935, #c62828) !important;
-                background-size: 300% 100% !important;
-                animation: logout-shine 2.5s linear infinite !important;
-                color: white !important;
-                border: none !important;
-                border-radius: 12px !important;
-                font-family: 'Rajdhani', sans-serif !important;
-                font-weight: 700 !important;
-                font-size: .95rem !important;
-                letter-spacing: 2px !important;
-                box-shadow: 0 4px 18px rgba(229,57,53,0.4) !important;
-                transition: transform .2s, box-shadow .2s !important;
-            }
-            div[data-testid="stSidebar"] .stButton.logout-trigger > button:hover {
-                transform: translateY(-2px) scale(1.03) !important;
-                box-shadow: 0 6px 24px rgba(229,57,53,0.6) !important;
-            }
-            </style>
-        </div>
+        <style>
+        @keyframes sair-pulse {
+            0%,100% { box-shadow:0 0 0 0 rgba(229,57,53,0.7), 0 4px 18px rgba(229,57,53,0.4); }
+            50%      { box-shadow:0 0 0 8px rgba(229,57,53,0), 0 6px 28px rgba(229,57,53,0.7); }
+        }
+        @keyframes sair-bg {
+            0%   { background-position:0% 50%; }
+            50%  { background-position:100% 50%; }
+            100% { background-position:0% 50%; }
+        }
+        div[data-testid="stSidebar"] button[kind="secondary"] {
+            background: linear-gradient(270deg,#b71c1c,#e53935,#ff5252,#e53935,#b71c1c) !important;
+            background-size: 400% 400% !important;
+            animation: sair-bg 3s ease infinite, sair-pulse 2s ease infinite !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 14px !important;
+            font-family: 'Rajdhani', sans-serif !important;
+            font-weight: 800 !important;
+            font-size: 1rem !important;
+            letter-spacing: 3px !important;
+            padding: 12px !important;
+            transition: transform .2s !important;
+        }
+        div[data-testid="stSidebar"] button[kind="secondary"]:hover {
+            transform: scale(1.04) translateY(-2px) !important;
+        }
+        </style>
         """, unsafe_allow_html=True)
 
-        col = st.container()
-        with col:
-            st.markdown('<div class="logout-trigger">', unsafe_allow_html=True)
-            if st.button("🚪  SAIR", use_container_width=True, key="btn_logout"):
-                logout()
-            st.markdown('</div>', unsafe_allow_html=True)
+        if st.button("🚪  S A I R", use_container_width=True, key="btn_logout"):
+            logout()
 
 # ══════════════════════════════════════════════════════════
 # MAIN
