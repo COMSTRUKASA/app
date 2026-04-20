@@ -33,19 +33,21 @@ html, body, [class*="css"] {
 .logo-title {
     font-family: 'Barlow Condensed', sans-serif;
     font-weight: 800;
-    font-size: 2.6rem;
+    font-size: clamp(1.5rem, 5vw, 2.2rem);
     color: #E65100;
-    letter-spacing: 2px;
+    letter-spacing: 1px;
     text-align: center;
-    line-height: 1;
+    line-height: 1.2;
+    white-space: normal;
+    word-break: break-word;
 }
 .logo-sub {
-    font-size: 0.85rem;
+    font-size: 0.78rem;
     color: #888;
     text-align: center;
-    letter-spacing: 4px;
+    letter-spacing: 3px;
     text-transform: uppercase;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.2rem;
 }
 
 /* Card de login */
@@ -187,7 +189,7 @@ div[data-baseweb="tab"] {
 # ─────────────────────────────────────────────
 FUNCIONARIOS = {
     "admin": {
-        "nome": "Gustavo",
+        "nome": "Gustavo Steinwandt Venturini Soares",
         "funcao": "Assistente Administrativo",
         "senha": "admin",
         "salario": 650.00,
@@ -388,27 +390,24 @@ def tela_login():
     st.markdown('<div class="aviso-normal">✅ Sistema operando normalmente — ' + texto_horario() + '</div>', unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
 
-    with st.container():
-        st.markdown('<div class="login-card">', unsafe_allow_html=True)
-        st.markdown("### 🔐 Acesso ao Sistema")
+    st.markdown("### 🔐 Acesso ao Sistema")
+    st.caption("Use seu usuário de sistema (ex: admin, sueli, wagner, rogerio...)")
 
-        usuario = st.text_input("Usuário", placeholder="Digite seu usuário")
-        senha   = st.text_input("Senha", type="password", placeholder="Digite sua senha")
+    usuario = st.text_input("Usuário", placeholder="Ex: admin, sueli, wagner...")
+    senha   = st.text_input("Senha", type="password", placeholder="Digite sua senha")
 
-        if st.button("Entrar →", use_container_width=True, type="primary"):
-            usuario_lower = usuario.lower().strip()
-            if usuario_lower in FUNCIONARIOS:
-                func = FUNCIONARIOS[usuario_lower]
-                if func["senha"] == senha.strip():
-                    st.session_state["usuario"] = usuario_lower
-                    st.session_state["logado"] = True
-                    st.rerun()
-                else:
-                    st.error("❌ Senha incorreta.")
+    if st.button("Entrar →", use_container_width=True, type="primary"):
+        usuario_lower = usuario.lower().strip()
+        if usuario_lower in FUNCIONARIOS:
+            func = FUNCIONARIOS[usuario_lower]
+            if func["senha"] == senha.strip():
+                st.session_state["usuario"] = usuario_lower
+                st.session_state["logado"] = True
+                st.rerun()
             else:
-                st.error("❌ Usuário não encontrado.")
-
-        st.markdown("</div>", unsafe_allow_html=True)
+                st.error("❌ Senha incorreta.")
+        else:
+            st.error(f"❌ Usuário não encontrado. Use o nome do sistema: admin, sueli, leiliane, riquele, wagner, agnaldo, rogerio ou samuel.")
 
     render_wpp_float()
 
