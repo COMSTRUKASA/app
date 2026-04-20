@@ -1,564 +1,732 @@
 import streamlit as st
 import json
 import os
-import hashlib
-from datetime import datetime, date
-import pandas as pd
-from pathlib import Path
-import base64
-import shutil
+from datetime import datetime, date, time
+import pytz
+import urllib.parse
 
-# ── Configuração da página ──────────────────────────────────────────────────
+# ─────────────────────────────────────────────
+# CONFIGURAÇÃO DA PÁGINA
+# ─────────────────────────────────────────────
 st.set_page_config(
-    page_title="COMSTRUKASA – Gestão de Funcionários",
+    page_title="COMSTRUKASA",
     page_icon="🏗️",
-    layout="wide",
-    initial_sidebar_state="expanded",
+    layout="centered",
+    initial_sidebar_state="collapsed"
 )
 
-# ── Caminhos de dados ───────────────────────────────────────────────────────
-DATA_DIR = Path("data")
-DATA_DIR.mkdir(exist_ok=True)
-USERS_FILE      = DATA_DIR / "users.json"
-PONTO_FILE      = DATA_DIR / "ponto.json"
-DOCS_DIR        = DATA_DIR / "documentos"
-DOCS_DIR.mkdir(exist_ok=True)
+# ─────────────────────────────────────────────
+# CSS GLOBAL
+# ─────────────────────────────────────────────
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700&family=Barlow+Condensed:wght@700;800&display=swap');
 
-# ── Helpers de persistência ─────────────────────────────────────────────────
-def load_json(path, default):
-    if path.exists():
-        with open(path, "r", encoding="utf-8") as f:
+html, body, [class*="css"] {
+    font-family: 'Barlow', sans-serif;
+}
+
+/* Remove padding padrão */
+.block-container { padding-top: 1rem !important; }
+
+/* Logo principal */
+.logo-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 2.6rem;
+    color: #E65100;
+    letter-spacing: 2px;
+    text-align: center;
+    line-height: 1;
+}
+.logo-sub {
+    font-size: 0.85rem;
+    color: #888;
+    text-align: center;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    margin-bottom: 1.5rem;
+}
+
+/* Card de login */
+.login-card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 2rem;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+/* Botão WhatsApp flutuante */
+.wpp-float {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    z-index: 9999;
+    animation: float 2.5s ease-in-out infinite;
+}
+.wpp-float a {
+    background: #25D366;
+    color: white !important;
+    border-radius: 50px;
+    padding: 12px 20px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    text-decoration: none !important;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 18px rgba(37,211,102,0.5);
+}
+@keyframes float {
+    0%   { transform: translateY(0px); }
+    50%  { transform: translateY(-8px); }
+    100% { transform: translateY(0px); }
+}
+
+/* Aviso de período encerrado */
+.bloqueio-card {
+    background: #fff3f3;
+    border: 2px solid #e53935;
+    border-radius: 14px;
+    padding: 2rem;
+    text-align: center;
+    max-width: 420px;
+    margin: 2rem auto;
+}
+.bloqueio-title {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #c62828;
+}
+.bloqueio-sub { color: #666; margin-top: .5rem; }
+
+/* Cabeçalho do painel */
+.painel-header {
+    background: linear-gradient(135deg, #E65100 0%, #BF360C 100%);
+    border-radius: 14px;
+    padding: 1.2rem 1.5rem;
+    color: white;
+    margin-bottom: 1rem;
+}
+.painel-header h2 { color: white; margin: 0; font-size: 1.3rem; }
+.painel-header p  { color: rgba(255,255,255,0.80); margin: 0; font-size: 0.9rem; }
+
+/* Cards de info */
+.info-card {
+    background: #fff;
+    border-radius: 12px;
+    border: 1px solid #eee;
+    padding: 1.2rem;
+    margin-bottom: .8rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+.info-card-title { font-size: 0.78rem; color: #999; text-transform: uppercase; letter-spacing: 1px; }
+.info-card-value { font-size: 1.5rem; font-weight: 700; color: #E65100; }
+.info-card-sub   { font-size: 0.85rem; color: #555; }
+
+/* Ponto badge */
+.badge-ok     { background:#e8f5e9; color:#2e7d32; padding:4px 12px; border-radius:20px; font-size:.82rem; font-weight:600; }
+.badge-warn   { background:#fff3e0; color:#e65100; padding:4px 12px; border-radius:20px; font-size:.82rem; font-weight:600; }
+.badge-danger { background:#ffebee; color:#c62828; padding:4px 12px; border-radius:20px; font-size:.82rem; font-weight:600; }
+
+/* Holerite aviso */
+.holerite-aviso {
+    background:#fff8e1;
+    border-left:4px solid #ffc107;
+    padding:.9rem 1.2rem;
+    border-radius:0 10px 10px 0;
+    color:#795548;
+    font-size:.9rem;
+    margin:.8rem 0;
+}
+
+/* Tabs customizadas */
+div[data-baseweb="tab-list"] {
+    gap: 4px;
+    background: #f5f5f5;
+    border-radius: 12px;
+    padding: 4px;
+}
+div[data-baseweb="tab"] {
+    border-radius: 8px !important;
+    font-weight: 600;
+}
+
+/* Upload area */
+.upload-hint {
+    background:#f0f4ff;
+    border:2px dashed #90a4f9;
+    border-radius:12px;
+    padding:1rem;
+    text-align:center;
+    color:#5c6bc0;
+    font-size:.9rem;
+    margin:.5rem 0;
+}
+
+/* Aviso normal */
+.aviso-normal {
+    background:#e8f5e9;
+    border-left:4px solid #43a047;
+    padding:.7rem 1rem;
+    border-radius:0 8px 8px 0;
+    color:#1b5e20;
+    font-size:.85rem;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width:6px; }
+::-webkit-scrollbar-thumb { background:#ccc; border-radius:3px; }
+</style>
+""", unsafe_allow_html=True)
+
+# ─────────────────────────────────────────────
+# DADOS DOS FUNCIONÁRIOS
+# ─────────────────────────────────────────────
+FUNCIONARIOS = {
+    "admin": {
+        "nome": "Gustavo Steinwandt Venturini Soares",
+        "funcao": "Assistente Administrativo",
+        "senha": "admin",
+        "salario": 650.00,
+        "meta": 0,
+        "comissao_pct": 0,
+        "mostrar_salario": True,
+        "mostrar_meta": False,
+        "mostrar_comissao": False,
+        "holerite_aviso": False,
+        "is_admin": True
+    },
+    "sueli": {
+        "nome": "Sueli",
+        "funcao": "Vendedora",
+        "senha": "maria1819",
+        "salario": 0,
+        "meta": 0,
+        "comissao_pct": 0,
+        "mostrar_salario": False,
+        "mostrar_meta": False,
+        "mostrar_comissao": False,
+        "holerite_aviso": True,
+        "is_admin": False
+    },
+    "leiliane": {
+        "nome": "Leiliane",
+        "funcao": "Vendedora",
+        "senha": "camila",
+        "salario": 0,
+        "meta": 0,
+        "comissao_pct": 0,
+        "mostrar_salario": False,
+        "mostrar_meta": False,
+        "mostrar_comissao": False,
+        "holerite_aviso": True,
+        "is_admin": False
+    },
+    "riquele": {
+        "nome": "Riquele",
+        "funcao": "Zeladora",
+        "senha": "riquele24",
+        "salario": 0,
+        "meta": 0,
+        "comissao_pct": 0,
+        "mostrar_salario": False,
+        "mostrar_meta": False,
+        "mostrar_comissao": False,
+        "holerite_aviso": True,
+        "is_admin": False
+    },
+    "wagner": {
+        "nome": "Wagner",
+        "funcao": "Assistente Administrativo",
+        "senha": "wagner007",
+        "salario": 650.00,
+        "meta": 0,
+        "comissao_pct": 0,
+        "mostrar_salario": True,
+        "mostrar_meta": False,
+        "mostrar_comissao": False,
+        "holerite_aviso": False,
+        "is_admin": False
+    },
+    "agnaldo": {
+        "nome": "Agnaldo",
+        "funcao": "Auxiliar de Produção",
+        "senha": "99551264",
+        "salario": 0,
+        "meta": 0,
+        "comissao_pct": 0,
+        "mostrar_salario": False,
+        "mostrar_meta": False,
+        "mostrar_comissao": False,
+        "holerite_aviso": True,
+        "is_admin": False
+    },
+    "rogerio": {
+        "nome": "Rogério",
+        "funcao": "Motorista",
+        "senha": "290580",
+        "salario": 0,
+        "meta": 0,
+        "comissao_pct": 0,
+        "mostrar_salario": False,
+        "mostrar_meta": False,
+        "mostrar_comissao": False,
+        "holerite_aviso": True,
+        "is_admin": False
+    },
+    "samuel": {
+        "nome": "Samuel",
+        "funcao": "Serrador",
+        "senha": "Sophia2710",
+        "salario": 0,
+        "meta": 0,
+        "comissao_pct": 0,
+        "mostrar_salario": False,
+        "mostrar_meta": False,
+        "mostrar_comissao": False,
+        "holerite_aviso": True,
+        "is_admin": False
+    }
+}
+
+WHATSAPP_NUMERO = "5541999013074"
+WHATSAPP_SUPORTE = "5541999013074"
+
+# ─────────────────────────────────────────────
+# ARQUIVO DE PERSISTÊNCIA (JSON simples)
+# ─────────────────────────────────────────────
+DATA_FILE = "comstrukasa_data.json"
+
+def carregar_dados():
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
-    return default
+    return {"pontos": {}, "documentos": []}
 
-def save_json(path, data):
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+def salvar_dados(dados):
+    with open(DATA_FILE, "w", encoding="utf-8") as f:
+        json.dump(dados, f, ensure_ascii=False, indent=2)
 
-def hash_pw(pw: str) -> str:
-    return hashlib.sha256(pw.encode()).hexdigest()
+# ─────────────────────────────────────────────
+# HORÁRIO DE FUNCIONAMENTO
+# ─────────────────────────────────────────────
+def verificar_horario():
+    tz = pytz.timezone("America/Sao_Paulo")
+    agora = datetime.now(tz)
+    dia = agora.weekday()   # 0=seg ... 6=dom
+    hora = agora.time()
 
-# ── Seed de usuários padrão ─────────────────────────────────────────────────
-def seed_users():
-    users = load_json(USERS_FILE, {})
-    if not users:
-        users = {
-            "Gustavo": {
-                "nome": "Gustavo",
-                "senha": hash_pw("Senha572011"),
-                "role": "admin",
-                "funcao": "Assistente Administrativo",
-                "salario": 0.00,
-                "meta_vendas": 0.00,
-            },
-            "Karen": {
-                "nome": "Karen",
-                "senha": hash_pw("stein2026"),
-                "role": "admin",
-                "funcao": "Gerente",
-                "salario": 0.00,
-                "meta_vendas": 0.00,
-            },
-            "Teste": {
-                "nome": "Teste",
-                "senha": hash_pw("senha"),
-                "role": "funcionario",
-                "funcao": "Teste",
-                "salario": 0.00,
-                "meta_vendas": 15000.00,
-            },
-            "Wagner": {
-                "nome": "Wagner",
-                "senha": hash_pw("senha"),
-                "role": "funcionario",
-                "funcao": "Assistente Administrativo",
-                "salario": 650.00,
-                "meta_vendas": 0.00,
-            },
-        }
-        save_json(USERS_FILE, users)
-    return users
+    seg_sex_inicio = time(7, 45)
+    seg_sex_fim    = time(19, 0)
+    sab_inicio     = time(7, 45)
+    sab_fim        = time(13, 0)
 
-# ── Estilos CSS ─────────────────────────────────────────────────────────────
-def inject_css():
-    st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700;800&family=Barlow+Condensed:wght@700;800&display=swap');
+    if 0 <= dia <= 4:          # Seg–Sex
+        return seg_sex_inicio <= hora <= seg_sex_fim
+    elif dia == 5:             # Sábado
+        return sab_inicio <= hora <= sab_fim
+    else:                      # Domingo
+        return False
 
-    html, body, [class*="css"] { font-family: 'Barlow', sans-serif; }
+def texto_horario():
+    return "Segunda a Sexta: 07:45 – 19:00  |  Sábado: 07:45 – 13:00"
 
-    /* Background geral */
-    .stApp { background: #0f1923; color: #e8e0d4; }
-
-    /* Sidebar */
-    section[data-testid="stSidebar"] {
-        background: #162130 !important;
-        border-right: 2px solid #e8520a;
-    }
-    section[data-testid="stSidebar"] * { color: #e8e0d4 !important; }
-
-    /* Cards */
-    .card {
-        background: #1a2b3c;
-        border: 1px solid #2a3f52;
-        border-radius: 12px;
-        padding: 1.4rem 1.6rem;
-        margin-bottom: 1rem;
-        transition: border-color .2s;
-    }
-    .card:hover { border-color: #e8520a; }
-    .card-title {
-        font-family: 'Barlow Condensed', sans-serif;
-        font-size: 1.1rem; font-weight: 700;
-        color: #e8520a; text-transform: uppercase;
-        letter-spacing: .08em; margin-bottom: .5rem;
-    }
-    .card-value {
-        font-size: 2rem; font-weight: 800; color: #e8e0d4;
-    }
-
-    /* Botões Streamlit */
-    .stButton > button {
-        background: #e8520a !important;
-        color: #fff !important;
-        border: none !important;
-        border-radius: 8px !important;
-        font-family: 'Barlow', sans-serif !important;
-        font-weight: 700 !important;
-        letter-spacing: .04em !important;
-        transition: opacity .2s !important;
-    }
-    .stButton > button:hover { opacity: .85 !important; }
-
-    /* Inputs */
-    input, textarea, select {
-        background: #1a2b3c !important;
-        color: #e8e0d4 !important;
-        border-color: #2a3f52 !important;
-        border-radius: 8px !important;
-    }
-
-    /* Header hero */
-    .hero {
-        background: linear-gradient(135deg, #e8520a 0%, #c43d00 100%);
-        border-radius: 14px;
-        padding: 1.6rem 2rem;
-        margin-bottom: 1.5rem;
-    }
-    .hero h1 {
-        font-family: 'Barlow Condensed', sans-serif;
-        font-size: 2.2rem; font-weight: 800;
-        color: #fff; margin: 0; letter-spacing: .04em;
-    }
-    .hero p { color: rgba(255,255,255,.8); margin: .3rem 0 0; font-size: .95rem; }
-
-    /* Tabela ponto */
-    .ponto-row {
-        display: flex; align-items: center; gap: 1rem;
-        background: #1a2b3c; border-radius: 10px;
-        padding: .7rem 1rem; margin-bottom: .5rem;
-        border-left: 4px solid #e8520a;
-    }
-    .ponto-label { font-weight: 700; min-width: 160px; color: #b0bec5; font-size: .85rem; text-transform: uppercase; letter-spacing: .06em; }
-    .ponto-time  { font-size: 1.2rem; font-weight: 800; color: #e8e0d4; }
-    .ponto-ok    { color: #4caf50; font-size: 1.2rem; }
-    .ponto-pend  { color: #e8520a; font-size: 1.2rem; }
-
-    /* Badge role */
-    .badge {
-        display: inline-block; padding: .2rem .7rem;
-        border-radius: 20px; font-size: .78rem; font-weight: 700;
-        text-transform: uppercase; letter-spacing: .06em;
-    }
-    .badge-admin { background: #e8520a22; color: #e8520a; border: 1px solid #e8520a; }
-    .badge-func  { background: #1565c022; color: #64b5f6; border: 1px solid #1565c0; }
-
-    /* Progress bar meta */
-    .meta-bar-bg {
-        background: #0f1923; border-radius: 20px; height: 14px; margin-top: .5rem;
-    }
-    .meta-bar-fill {
-        background: linear-gradient(90deg, #e8520a, #ff7043);
-        border-radius: 20px; height: 14px; transition: width .6s ease;
-    }
-
-    /* Divider */
-    hr { border-color: #2a3f52 !important; }
-
-    /* File uploader */
-    [data-testid="stFileUploader"] { border-color: #2a3f52 !important; background: #1a2b3c !important; }
-
-    /* Tabs */
-    .stTabs [data-baseweb="tab-list"] { background: #162130; border-radius: 10px; }
-    .stTabs [data-baseweb="tab"]      { color: #b0bec5 !important; font-weight: 600; }
-    .stTabs [aria-selected="true"]    { color: #e8520a !important; border-bottom: 2px solid #e8520a !important; }
-
-    /* Selectbox label */
-    label { color: #b0bec5 !important; font-size: .85rem !important; }
-    </style>
+# ─────────────────────────────────────────────
+# BOTÃO WHATSAPP FLUTUANTE
+# ─────────────────────────────────────────────
+def render_wpp_float():
+    link = f"https://wa.me/{WHATSAPP_SUPORTE}?text=Ol%C3%A1%2C%20preciso%20de%20suporte%20no%20COMSTRUKASA!"
+    st.markdown(f"""
+    <div class="wpp-float">
+      <a href="{link}" target="_blank">
+        💬 Suporte WhatsApp
+      </a>
+    </div>
     """, unsafe_allow_html=True)
 
-# ── Login ───────────────────────────────────────────────────────────────────
-def page_login(users):
-    st.markdown("""
-    <div style='display:flex;justify-content:center;margin-top:3rem;'>
-      <div style='background:#1a2b3c;border-radius:16px;padding:2.5rem 2.8rem;width:100%;max-width:420px;border:1px solid #2a3f52;'>
-        <div style='text-align:center;margin-bottom:1.8rem;'>
-          <span style='font-size:3rem;'>🏗️</span>
-          <h1 style='font-family:"Barlow Condensed",sans-serif;font-weight:800;color:#e8e0d4;font-size:1.8rem;margin:.4rem 0 0;'>COMSTRUKASA</h1>
-          <p style='color:#b0bec5;font-size:.9rem;margin:.3rem 0 0;'>Sistema de Gestão de Funcionários</p>
+# ─────────────────────────────────────────────
+# LOGO
+# ─────────────────────────────────────────────
+def render_logo():
+    st.markdown('<div class="logo-title">🏗️ COMSTRUKASA</div>', unsafe_allow_html=True)
+    st.markdown('<div class="logo-sub">Materiais para Construção</div>', unsafe_allow_html=True)
+
+# ─────────────────────────────────────────────
+# TELA DE ACESSO BLOQUEADO
+# ─────────────────────────────────────────────
+def tela_bloqueio():
+    render_logo()
+    st.markdown(f"""
+    <div class="bloqueio-card">
+        <div style="font-size:3rem;">🔒</div>
+        <div class="bloqueio-title">Sistema Encerrado</div>
+        <div class="bloqueio-sub">
+            Nosso horário de atendimento é:<br><br>
+            <b>Segunda a Sexta:</b> 07:45 – 19:00<br>
+            <b>Sábado:</b> 07:45 – 13:00<br><br>
+            Fora deste período o sistema permanece bloqueado.<br>
+            Em caso de urgência, entre em contato pelo WhatsApp.
         </div>
-      </div>
+        <br>
+        <a href="https://wa.me/{WHATSAPP_SUPORTE}?text=Preciso+de+suporte+fora+do+hor%C3%A1rio!" target="_blank"
+           style="background:#25D366;color:white;padding:10px 22px;border-radius:30px;text-decoration:none;font-weight:700;">
+           💬 Falar no WhatsApp
+        </a>
     </div>
     """, unsafe_allow_html=True)
+    render_wpp_float()
 
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.markdown("##### Acesse sua conta")
-        usuario = st.text_input("👤 Usuário", placeholder="ex: Gustavo")
-        senha   = st.text_input("🔒 Senha", type="password", placeholder="••••••••")
-        if st.button("Entrar →", use_container_width=True):
-            if usuario in users and users[usuario]["senha"] == hash_pw(senha):
-                st.session_state["user"] = usuario
-                st.session_state["user_data"] = users[usuario]
-                st.rerun()
-            else:
-                st.error("Usuário ou senha incorretos.")
-        st.caption("💡 o Aplicativo se encontra em fase de Desenvolvimento, se encontrar algum erro contate: +55 (43) 99696-0065")
+# ─────────────────────────────────────────────
+# TELA DE LOGIN
+# ─────────────────────────────────────────────
+def tela_login():
+    render_logo()
 
-# ── Sidebar ─────────────────────────────────────────────────────────────────
-def sidebar_menu(user_data):
-    with st.sidebar:
-        st.markdown(f"""
-        <div style='padding:.8rem 0 1.2rem;'>
-          <div style='font-size:2rem;text-align:center;'>🏗️</div>
-          <div style='text-align:center;font-family:"Barlow Condensed",sans-serif;font-size:1.3rem;font-weight:800;color:#e8520a;'>COMSTRUKASA</div>
-          <hr style='margin:.6rem 0;'/>
-          <div style='font-size:.95rem;font-weight:700;color:#e8e0d4;'>{user_data["nome"]}</div>
-          <div style='font-size:.8rem;color:#b0bec5;'>{user_data["funcao"]}</div>
-          <span class='badge {"badge-admin" if user_data["role"]=="admin" else "badge-func"}'>
-            {"Admin" if user_data["role"]=="admin" else "Funcionário"}
-          </span>
-        </div>
-        """, unsafe_allow_html=True)
+    st.markdown('<div class="aviso-normal">✅ Sistema operando normalmente — ' + texto_horario() + '</div>', unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
 
-        pagina = st.radio("Navegar", [
-            "🏠 Painel",
-            "⏱️ Livro Ponto",
-            "📄 Documentos",
-            *(["👥 Administração"] if user_data["role"] == "admin" else []),
-        ])
-        st.markdown("---")
-        if st.button("🚪 Sair", use_container_width=True):
-            for k in ["user","user_data"]:
-                st.session_state.pop(k, None)
-            st.rerun()
-    return pagina
+    with st.container():
+        st.markdown('<div class="login-card">', unsafe_allow_html=True)
+        st.markdown("### 🔐 Acesso ao Sistema")
 
-# ── Painel ──────────────────────────────────────────────────────────────────
-def page_painel(username, user_data):
-    st.markdown(f"""
-    <div class='hero'>
-      <h1>Olá, {user_data["nome"].split()[0]}! 👋</h1>
-      <p>{date.today().strftime("%A, %d de %B de %Y")} · {user_data["funcao"]}</p>
-    </div>
-    """, unsafe_allow_html=True)
+        usuario = st.text_input("Usuário", placeholder="Digite seu usuário")
+        senha   = st.text_input("Senha", type="password", placeholder="Digite sua senha")
 
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        st.markdown(f"""
-        <div class='card'>
-          <div class='card-title'>💰 Salário Mensal</div>
-          <div class='card-value'>R$ {user_data["salario"]:,.2f}</div>
-        </div>""", unsafe_allow_html=True)
-    with c2:
-        meta = user_data["meta_vendas"]
-        st.markdown(f"""
-        <div class='card'>
-          <div class='card-title'>🎯 Meta de Vendas</div>
-          <div class='card-value'>R$ {meta:,.2f}</div>
-          <div style='color:#b0bec5;font-size:.8rem;margin-top:.3rem;'>Mês atual</div>
-        </div>""", unsafe_allow_html=True)
-    with c3:
-        st.markdown(f"""
-        <div class='card'>
-          <div class='card-title'>🪪 Função</div>
-          <div class='card-value' style='font-size:1.4rem;'>{user_data["funcao"]}</div>
-        </div>""", unsafe_allow_html=True)
-
-    # Progresso de vendas (simulado)
-    st.markdown("#### 📊 Progresso da Meta")
-    vendas_key = f"vendas_{username}"
-    vendas_atuais = st.session_state.get(vendas_key, 0.0)
-    vendas_input = st.number_input(
-        "Atualizar vendas do mês (R$):", min_value=0.0,
-        value=vendas_atuais, step=100.0, format="%.2f", key="v_input"
-    )
-    if st.button("💾 Salvar vendas"):
-        st.session_state[vendas_key] = vendas_input
-        st.success("Vendas atualizadas!")
-        st.rerun()
-
-    pct = min(vendas_atuais / user_data["meta_vendas"] * 100, 100) if user_data["meta_vendas"] > 0 else 0
-    cor = "#4caf50" if pct >= 100 else "#e8520a"
-    st.markdown(f"""
-    <div style='margin-top:.3rem;'>
-      <div style='display:flex;justify-content:space-between;font-size:.85rem;color:#b0bec5;'>
-        <span>R$ {vendas_atuais:,.2f}</span><span>{pct:.1f}%</span>
-      </div>
-      <div class='meta-bar-bg'>
-        <div class='meta-bar-fill' style='width:{pct}%;background:linear-gradient(90deg,{cor},{cor}99);'></div>
-      </div>
-      <div style='font-size:.8rem;color:#b0bec5;margin-top:.3rem;'>Meta: R$ {user_data["meta_vendas"]:,.2f}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # Último ponto
-    st.markdown("---")
-    st.markdown("#### ⏱️ Ponto de Hoje")
-    ponto = load_json(PONTO_FILE, {})
-    hoje  = str(date.today())
-    reg   = ponto.get(username, {}).get(hoje, {})
-    marcacoes = [
-        ("Entrada",          "entrada"),
-        ("Saída Café (manhã)", "saida_cafe_manha"),
-        ("Retorno Café",      "retorno_cafe_manha"),
-        ("Saída Almoço",      "saida_almoco"),
-        ("Retorno Almoço",    "retorno_almoco"),
-        ("Saída Café (tarde)", "saida_cafe_tarde"),
-        ("Retorno Café (tarde)","retorno_cafe_tarde"),
-        ("Saída",             "saida"),
-    ]
-    cols = st.columns(4)
-    for i, (label, key) in enumerate(marcacoes):
-        with cols[i % 4]:
-            val = reg.get(key, "—")
-            icone = "✅" if val != "—" else "⏳"
-            st.markdown(f"""
-            <div class='card' style='padding:.8rem;text-align:center;'>
-              <div class='card-title' style='font-size:.7rem;'>{label}</div>
-              <div style='font-size:1.3rem;'>{icone}</div>
-              <div style='font-size:.95rem;font-weight:700;color:#e8e0d4;'>{val}</div>
-            </div>""", unsafe_allow_html=True)
-
-# ── Livro Ponto ─────────────────────────────────────────────────────────────
-def page_ponto(username, user_data):
-    st.markdown(f"""
-    <div class='hero'>
-      <h1>⏱️ Livro Ponto Digital</h1>
-      <p>Registre seu horário · {date.today().strftime("%d/%m/%Y")}</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    ponto = load_json(PONTO_FILE, {})
-    hoje  = str(date.today())
-    if username not in ponto:
-        ponto[username] = {}
-    if hoje not in ponto[username]:
-        ponto[username][hoje] = {}
-    reg = ponto[username][hoje]
-
-    marcacoes = [
-        ("🟢 Entrada",              "entrada"),
-        ("🍽️ Saída Almoço",          "saida_almoco"),
-        ("🔙 Retorno Almoço",        "retorno_almoco"),
-        ("☕ Saída Café (tarde)",    "saida_cafe_tarde"),
-        ("🔙 Retorno Café (tarde)",  "retorno_cafe_tarde"),
-        ("🔴 Saída",                 "saida"),
-    ]
-
-    st.markdown("### Marcações de Hoje")
-    for label, key in marcacoes:
-        val = reg.get(key)
-        col_l, col_v, col_b = st.columns([3, 2, 2])
-        with col_l:
-            st.markdown(f"<div style='padding:.5rem 0;font-weight:600;color:#e8e0d4;'>{label}</div>", unsafe_allow_html=True)
-        with col_v:
-            if val:
-                st.markdown(f"<div style='padding:.5rem 0;color:#4caf50;font-weight:700;font-size:1.1rem;'>✅ {val}</div>", unsafe_allow_html=True)
-            else:
-                st.markdown("<div style='padding:.5rem 0;color:#e8520a;'>⏳ Não marcado</div>", unsafe_allow_html=True)
-        with col_b:
-            if not val:
-                if st.button(f"Marcar agora", key=f"btn_{key}"):
-                    agora = datetime.now().strftime("%H:%M:%S")
-                    ponto[username][hoje][key] = agora
-                    save_json(PONTO_FILE, ponto)
-                    st.success(f"Marcado: {agora}")
+        if st.button("Entrar →", use_container_width=True, type="primary"):
+            usuario_lower = usuario.lower().strip()
+            if usuario_lower in FUNCIONARIOS:
+                func = FUNCIONARIOS[usuario_lower]
+                if func["senha"] == senha.strip():
+                    st.session_state["usuario"] = usuario_lower
+                    st.session_state["logado"] = True
                     st.rerun()
+                else:
+                    st.error("❌ Senha incorreta.")
             else:
-                st.caption("Registrado")
-        st.markdown("<hr style='margin:.2rem 0;border-color:#1e3046;'>", unsafe_allow_html=True)
+                st.error("❌ Usuário não encontrado.")
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    render_wpp_float()
+
+# ─────────────────────────────────────────────
+# HELPER: FORMATAR MOEDA
+# ─────────────────────────────────────────────
+def fmt_moeda(v):
+    return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+# ─────────────────────────────────────────────
+# PONTO DIGITAL
+# ─────────────────────────────────────────────
+MARCACOES = ["Entrada", "Saída Almoço", "Retorno Almoço", "Saída Café", "Retorno Café", "Saída"]
+EMOJIS_PONTO = {"Entrada":"🟢","Saída Almoço":"🍽️","Retorno Almoço":"🔄","Saída Café":"☕","Retorno Café":"🔄","Saída":"🔴"}
+
+def tela_ponto(usuario, dados):
+    tz = pytz.timezone("America/Sao_Paulo")
+    hoje = date.today().isoformat()
+
+    if usuario not in dados["pontos"]:
+        dados["pontos"][usuario] = {}
+    if hoje not in dados["pontos"][usuario]:
+        dados["pontos"][usuario][hoje] = {}
+
+    registro_hoje = dados["pontos"][usuario][hoje]
+
+    st.markdown(f"**📅 Hoje:** {datetime.now(tz).strftime('%d/%m/%Y %H:%M')}")
+
+    # Próxima marcação
+    proxima = None
+    for m in MARCACOES:
+        if m not in registro_hoje:
+            proxima = m
+            break
+
+    if proxima:
+        st.info(f"⏳ Próxima marcação: **{proxima}**")
+        if st.button(f"{EMOJIS_PONTO[proxima]} Registrar {proxima}", use_container_width=True, type="primary"):
+            agora_str = datetime.now(tz).strftime("%H:%M:%S")
+            registro_hoje[proxima] = agora_str
+            dados["pontos"][usuario][hoje] = registro_hoje
+            salvar_dados(dados)
+
+            # Enviar notificação WPP
+            nome = FUNCIONARIOS[usuario]["nome"]
+            msg = f"📋 PONTO COMSTRUKASA\n👤 {nome}\n⏰ {proxima}: {agora_str}\n📅 {hoje}"
+            link = f"https://wa.me/{WHATSAPP_NUMERO}?text={urllib.parse.quote(msg)}"
+            st.success(f"✅ {proxima} registrada às {agora_str}!")
+            st.markdown(f'<a href="{link}" target="_blank" style="background:#25D366;color:white;padding:8px 18px;border-radius:20px;text-decoration:none;font-weight:700;font-size:.9rem;">📲 Enviar confirmação no WhatsApp</a>', unsafe_allow_html=True)
+            st.rerun()
+    else:
+        st.success("✅ Todas as marcações do dia foram concluídas!")
+
+    # Tabela do dia
+    if registro_hoje:
+        st.markdown("#### 📋 Registros de Hoje")
+        for m in MARCACOES:
+            hora = registro_hoje.get(m, "–")
+            badge = "badge-ok" if hora != "–" else "badge-warn"
+            st.markdown(f'<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #eee;"><span>{EMOJIS_PONTO[m]} {m}</span><span class="{badge}">{hora}</span></div>', unsafe_allow_html=True)
 
     # Histórico
-    st.markdown("---")
-    st.markdown("### 📅 Histórico de Pontos")
-    historico = ponto.get(username, {})
-    if historico:
-        rows = []
-        for dia, regs in sorted(historico.items(), reverse=True):
-            rows.append({"Data": dia, **{k: v for k, v in regs.items()}})
-        df = pd.DataFrame(rows).fillna("—")
-        df.columns = [c.replace("_", " ").title() for c in df.columns]
-        st.dataframe(df, use_container_width=True, hide_index=True)
+    st.markdown("#### 📆 Histórico de Pontos")
+    historico = dados["pontos"].get(usuario, {})
+    datas_ord = sorted(historico.keys(), reverse=True)
+    if len(datas_ord) > 1:
+        for d in datas_ord[:10]:
+            if d == hoje:
+                continue
+            reg = historico[d]
+            with st.expander(f"📅 {d}"):
+                for m in MARCACOES:
+                    h = reg.get(m, "–")
+                    st.write(f"{EMOJIS_PONTO[m]} **{m}**: {h}")
     else:
-        st.info("Nenhum registro encontrado.")
+        st.caption("Nenhum histórico anterior disponível.")
 
-# ── Documentos ──────────────────────────────────────────────────────────────
-def page_documentos(username):
-    st.markdown("""
-    <div class='hero'>
-      <h1>📄 Documentos</h1>
-      <p>Envie e gerencie seus documentos</p>
+# ─────────────────────────────────────────────
+# PAINEL DO FUNCIONÁRIO
+# ─────────────────────────────────────────────
+def painel_funcionario(usuario, func, dados):
+    st.markdown(f"""
+    <div class="painel-header">
+        <h2>👷 Olá, {func['nome']}!</h2>
+        <p>🏗️ COMSTRUKASA &nbsp;|&nbsp; {func['funcao']}</p>
     </div>
     """, unsafe_allow_html=True)
 
-    TIPOS = ["Atestado Médico", "Declaração", "Admissão", "Demissão", "Outros"]
-    tipo = st.selectbox("Tipo de documento", TIPOS)
-    arq  = st.file_uploader("Selecione o arquivo (PDF ou PNG/JPG)", type=["pdf","png","jpg","jpeg"])
+    abas = ["📋 Livro Ponto", "💰 Financeiro", "📁 Documentos"]
+    tab1, tab2, tab3 = st.tabs(abas)
 
-    if st.button("📤 Enviar Documento") and arq:
-        ts       = datetime.now().strftime("%Y%m%d_%H%M%S")
-        destino  = DOCS_DIR / username
-        destino.mkdir(exist_ok=True)
-        nome_arq = f"{ts}_{tipo.replace(' ','_')}_{arq.name}"
-        with open(destino / nome_arq, "wb") as f:
-            f.write(arq.getbuffer())
-        st.success(f"✅ Documento enviado: {nome_arq}")
+    with tab1:
+        tela_ponto(usuario, dados)
 
-    st.markdown("---")
-    st.markdown("### 📁 Meus Documentos")
-    pasta = DOCS_DIR / username
-    if pasta.exists():
-        arquivos = sorted(pasta.iterdir(), reverse=True)
-        if arquivos:
-            for arq_path in arquivos:
-                col1, col2 = st.columns([5, 1])
-                with col1:
-                    st.markdown(f"📎 **{arq_path.name}**")
-                with col2:
-                    with open(arq_path, "rb") as f:
-                        b64 = base64.b64encode(f.read()).decode()
-                    ext = arq_path.suffix.lower()
-                    mime = "application/pdf" if ext == ".pdf" else "image/png"
-                    href = f'<a href="data:{mime};base64,{b64}" download="{arq_path.name}" style="color:#e8520a;font-weight:700;">⬇ Baixar</a>'
-                    st.markdown(href, unsafe_allow_html=True)
+    with tab2:
+        st.markdown("### 💰 Informações Financeiras")
+
+        # Salário
+        if func["mostrar_salario"] and func["salario"] > 0:
+            st.markdown(f"""
+            <div class="info-card">
+                <div class="info-card-title">Salário Mensal</div>
+                <div class="info-card-value">{fmt_moeda(func['salario'])}</div>
+            </div>""", unsafe_allow_html=True)
+        elif func["holerite_aviso"]:
+            st.markdown('<div class="holerite-aviso">📄 <b>Holerite:</b> Estará disponível ao fim do mês. Consulte o setor administrativo.</div>', unsafe_allow_html=True)
+
+        # Meta
+        if func["mostrar_meta"] and func["meta"] > 0:
+            st.markdown(f"""
+            <div class="info-card">
+                <div class="info-card-title">Meta Mensal</div>
+                <div class="info-card-value">{fmt_moeda(func['meta'])}</div>
+                <div class="info-card-sub">Atingir esta meta garante sua comissão</div>
+            </div>""", unsafe_allow_html=True)
+
+        # Comissão
+        if func["mostrar_comissao"] and func["comissao_pct"] > 0:
+            st.markdown(f"""
+            <div class="info-card">
+                <div class="info-card-title">Comissão sobre vendas acima da meta</div>
+                <div class="info-card-value">{func['comissao_pct']}%</div>
+                <div class="info-card-sub">Calculado sobre o valor excedente à meta</div>
+            </div>""", unsafe_allow_html=True)
+
+            if func["meta"] > 0:
+                st.markdown("##### 🧮 Simulador de Comissão")
+                vendas = st.number_input("Suas vendas no mês (R$)", min_value=0.0, step=100.0)
+                if vendas > func["meta"]:
+                    excedente = vendas - func["meta"]
+                    comissao  = excedente * (func["comissao_pct"] / 100)
+                    st.success(f"🎉 Comissão estimada: {fmt_moeda(comissao)} ({fmt_moeda(excedente)} acima da meta)")
+                elif vendas > 0:
+                    falta = func["meta"] - vendas
+                    st.warning(f"⚠️ Faltam {fmt_moeda(falta)} para atingir a meta.")
+
+    with tab3:
+        tela_documentos(usuario, func, dados)
+
+# ─────────────────────────────────────────────
+# DOCUMENTOS
+# ─────────────────────────────────────────────
+TIPOS_DOC = ["Atestado Médico", "Admissão", "Demissão", "Declaração", "Comprovante", "Outro"]
+
+def tela_documentos(usuario, func, dados):
+    st.markdown("### 📁 Envio de Documentos")
+    st.caption("Envie atestados, declarações, documentos de admissão/demissão e outros.")
+
+    tipo = st.selectbox("Tipo de documento", TIPOS_DOC)
+    obs  = st.text_area("Observação (opcional)", placeholder="Descreva o documento se necessário...")
+    arq  = st.file_uploader("Anexar arquivo (PNG ou PDF)", type=["png", "pdf"])
+
+    if st.button("📤 Enviar Documento", use_container_width=True):
+        if arq is None:
+            st.warning("⚠️ Selecione um arquivo antes de enviar.")
         else:
-            st.info("Nenhum documento enviado ainda.")
-    else:
-        st.info("Nenhum documento enviado ainda.")
+            nome = func["nome"]
+            data_str = datetime.now().strftime("%d/%m/%Y %H:%M")
+            msg = (f"📁 DOCUMENTO COMSTRUKASA\n"
+                   f"👤 Funcionário: {nome}\n"
+                   f"📄 Tipo: {tipo}\n"
+                   f"📝 Obs: {obs or 'Sem observação'}\n"
+                   f"📅 Data: {data_str}\n"
+                   f"📎 Arquivo: {arq.name}")
 
-# ── Administração ────────────────────────────────────────────────────────────
-def page_admin():
-    st.markdown("""
-    <div class='hero'>
-      <h1>👥 Administração</h1>
-      <p>Gerenciar funcionários e registros</p>
-    </div>
-    """, unsafe_allow_html=True)
+            link = f"https://wa.me/{WHATSAPP_NUMERO}?text={urllib.parse.quote(msg)}"
 
-    users = load_json(USERS_FILE, {})
-    tabs  = st.tabs(["📋 Funcionários", "⏱️ Pontos Geral", "➕ Novo Funcionário", "✏️ Editar Funcionário"])
-
-    # ── Tab 1: lista
-    with tabs[0]:
-        rows = []
-        for u, d in users.items():
-            rows.append({
-                "Usuário": u, "Nome": d["nome"], "Função": d["funcao"],
-                "Salário (R$)": f'{d["salario"]:,.2f}',
-                "Meta (R$)": f'{d["meta_vendas"]:,.2f}',
-                "Perfil": d["role"],
+            # Registrar localmente
+            if "documentos" not in dados:
+                dados["documentos"] = []
+            dados["documentos"].append({
+                "usuario": usuario,
+                "nome": nome,
+                "tipo": tipo,
+                "obs": obs,
+                "arquivo": arq.name,
+                "data": data_str
             })
-        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+            salvar_dados(dados)
 
-    # ── Tab 2: pontos
-    with tabs[1]:
-        ponto = load_json(PONTO_FILE, {})
-        rows  = []
-        for user, dias in ponto.items():
-            nome = users.get(user, {}).get("nome", user)
-            for dia, regs in dias.items():
-                rows.append({"Funcionário": nome, "Data": dia, **regs})
-        if rows:
-            df = pd.DataFrame(rows).fillna("—")
-            df.columns = [c.replace("_"," ").title() for c in df.columns]
-            st.dataframe(df, use_container_width=True, hide_index=True)
-        else:
-            st.info("Nenhum ponto registrado.")
+            st.success(f"✅ Documento registrado! Clique abaixo para enviar ao WhatsApp.")
+            st.markdown(f'<a href="{link}" target="_blank" style="background:#25D366;color:white;padding:10px 22px;border-radius:24px;text-decoration:none;font-weight:700;">📲 Enviar via WhatsApp</a>', unsafe_allow_html=True)
 
-    # ── Tab 3: novo funcionário
-    with tabs[2]:
-        with st.form("novo_func"):
-            col1, col2 = st.columns(2)
-            with col1:
-                n_user  = st.text_input("Login (sem espaços)", placeholder="ana.lima")
-                n_nome  = st.text_input("Nome completo")
-                n_senha = st.text_input("Senha inicial", type="password")
-            with col2:
-                n_func  = st.text_input("Função", placeholder="Vendedor")
-                n_sal   = st.number_input("Salário (R$)", min_value=0.0, step=100.0, format="%.2f")
-                n_meta  = st.number_input("Meta de vendas (R$)", min_value=0.0, step=500.0, format="%.2f")
-            n_role  = st.selectbox("Perfil", ["funcionario", "admin"])
-            if st.form_submit_button("✅ Cadastrar"):
-                if n_user and n_nome and n_senha:
-                    if n_user in users:
-                        st.error("Usuário já existe!")
-                    else:
-                        users[n_user] = {
-                            "nome": n_nome, "senha": hash_pw(n_senha),
-                            "role": n_role, "funcao": n_func,
-                            "salario": n_sal, "meta_vendas": n_meta,
-                        }
-                        save_json(USERS_FILE, users)
-                        st.success(f"Funcionário {n_nome} cadastrado!")
+    # Histórico de documentos do funcionário
+    historico_docs = [d for d in dados.get("documentos", []) if d["usuario"] == usuario]
+    if historico_docs:
+        st.markdown("#### 📋 Histórico de Documentos Enviados")
+        for d in reversed(historico_docs[-10:]):
+            with st.expander(f"📄 {d['tipo']} — {d['data']}"):
+                st.write(f"**Arquivo:** {d['arquivo']}")
+                if d.get("obs"):
+                    st.write(f"**Obs:** {d['obs']}")
+
+# ─────────────────────────────────────────────
+# PAINEL ADMIN
+# ─────────────────────────────────────────────
+def painel_admin(dados):
+    st.markdown("""
+    <div class="painel-header">
+        <h2>🛡️ Painel Administrativo</h2>
+        <p>COMSTRUKASA &nbsp;|&nbsp; Gustavo Steinwandt V. Soares</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    abas = ["👥 Pontos de Todos", "📁 Documentos Recebidos", "📊 Resumo", "⚙️ Meu Ponto"]
+    tab1, tab2, tab3, tab4 = st.tabs(abas)
+
+    with tab1:
+        st.markdown("### 👥 Livro Ponto — Todos os Funcionários")
+        hoje = date.today().isoformat()
+
+        for uid, func in FUNCIONARIOS.items():
+            if func["is_admin"]:
+                continue
+            with st.expander(f"👤 {func['nome']} — {func['funcao']}"):
+                registros = dados["pontos"].get(uid, {})
+                datas = sorted(registros.keys(), reverse=True)
+                if not datas:
+                    st.caption("Nenhum registro encontrado.")
                 else:
-                    st.error("Preencha login, nome e senha.")
+                    for d in datas[:15]:
+                        st.markdown(f"**📅 {d}**")
+                        reg = registros[d]
+                        cols = st.columns(3)
+                        for i, m in enumerate(MARCACOES):
+                            h = reg.get(m, "–")
+                            cols[i % 3].markdown(f"<small>{EMOJIS_PONTO[m]} **{m}**</small><br>{h}", unsafe_allow_html=True)
+                        st.divider()
 
-    # ── Tab 4: editar
-    with tabs[3]:
-        sel = st.selectbox("Selecionar funcionário", list(users.keys()))
-        ud  = users[sel]
-        with st.form("edit_func"):
-            col1, col2 = st.columns(2)
-            with col1:
-                e_nome  = st.text_input("Nome", value=ud["nome"])
-                e_func  = st.text_input("Função", value=ud["funcao"])
-                e_senha = st.text_input("Nova senha (deixe em branco p/ manter)", type="password")
-            with col2:
-                e_sal   = st.number_input("Salário (R$)", value=ud["salario"], step=100.0, format="%.2f")
-                e_meta  = st.number_input("Meta (R$)", value=ud["meta_vendas"], step=500.0, format="%.2f")
-                e_role  = st.selectbox("Perfil", ["funcionario","admin"],
-                                       index=0 if ud["role"]=="funcionario" else 1)
-            if st.form_submit_button("💾 Salvar alterações"):
-                users[sel]["nome"]       = e_nome
-                users[sel]["funcao"]     = e_func
-                users[sel]["salario"]    = e_sal
-                users[sel]["meta_vendas"]= e_meta
-                users[sel]["role"]       = e_role
-                if e_senha:
-                    users[sel]["senha"] = hash_pw(e_senha)
-                save_json(USERS_FILE, users)
-                st.success("Alterações salvas!")
-                st.rerun()
+    with tab2:
+        st.markdown("### 📁 Documentos Recebidos")
+        docs = dados.get("documentos", [])
+        if not docs:
+            st.info("Nenhum documento enviado ainda.")
+        else:
+            for d in reversed(docs):
+                with st.expander(f"📄 {d['nome']} — {d['tipo']} — {d['data']}"):
+                    st.write(f"**Arquivo:** {d['arquivo']}")
+                    st.write(f"**Obs:** {d.get('obs', '—')}")
+                    msg = (f"📁 DOCUMENTO\n👤 {d['nome']}\n📄 {d['tipo']}\n"
+                           f"📅 {d['data']}\n📎 {d['arquivo']}")
+                    link = f"https://wa.me/{WHATSAPP_NUMERO}?text={urllib.parse.quote(msg)}"
+                    st.markdown(f'<a href="{link}" target="_blank" style="color:#25D366;font-weight:600;font-size:.85rem;">📲 Reenviar no WhatsApp</a>', unsafe_allow_html=True)
 
-# ── Main ─────────────────────────────────────────────────────────────────────
+    with tab3:
+        st.markdown("### 📊 Resumo da Equipe")
+        total = len([u for u in FUNCIONARIOS if not FUNCIONARIOS[u]["is_admin"]])
+        hoje = date.today().isoformat()
+        presentes = 0
+        for uid, func in FUNCIONARIOS.items():
+            if func["is_admin"]:
+                continue
+            reg = dados["pontos"].get(uid, {}).get(hoje, {})
+            if "Entrada" in reg:
+                presentes += 1
+
+        c1, c2, c3 = st.columns(3)
+        c1.metric("👥 Total de Funcionários", total)
+        c2.metric("✅ Com entrada hoje", presentes)
+        c3.metric("📁 Documentos totais", len(dados.get("documentos", [])))
+
+        st.markdown("#### 👤 Situação de Hoje")
+        for uid, func in FUNCIONARIOS.items():
+            if func["is_admin"]:
+                continue
+            reg = dados["pontos"].get(uid, {}).get(hoje, {})
+            ultima = list(reg.keys())[-1] if reg else None
+            hora   = reg.get(ultima, "–") if ultima else "–"
+            badge  = "badge-ok" if "Entrada" in reg else "badge-danger"
+            status = f"{ultima}: {hora}" if ultima else "Sem registro"
+            st.markdown(f'<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eee;"><span>👤 {func["nome"]} <small style="color:#999">— {func["funcao"]}</small></span><span class="{badge}">{status}</span></div>', unsafe_allow_html=True)
+
+    with tab4:
+        st.markdown("### 📋 Meu Livro Ponto")
+        tela_ponto("admin", dados)
+
+# ─────────────────────────────────────────────
+# MAIN
+# ─────────────────────────────────────────────
 def main():
-    inject_css()
-    users = seed_users()
+    dados = carregar_dados()
 
-    if "user" not in st.session_state:
-        page_login(users)
+    # Estado de sessão
+    if "logado" not in st.session_state:
+        st.session_state["logado"] = False
+    if "usuario" not in st.session_state:
+        st.session_state["usuario"] = None
+
+    # Verificar horário
+    dentro_horario = verificar_horario()
+
+    if not st.session_state["logado"]:
+        if not dentro_horario:
+            tela_bloqueio()
+        else:
+            tela_login()
         return
 
-    username  = st.session_state["user"]
-    user_data = load_json(USERS_FILE, {}).get(username, st.session_state["user_data"])
-    pagina    = sidebar_menu(user_data)
+    # Usuário logado
+    usuario = st.session_state["usuario"]
+    func    = FUNCIONARIOS[usuario]
 
-    if   "Painel"        in pagina: page_painel(username, user_data)
-    elif "Livro Ponto"   in pagina: page_ponto(username, user_data)
-    elif "Documentos"    in pagina: page_documentos(username)
-    elif "Administração" in pagina: page_admin()
+    # Sidebar com logout
+    with st.sidebar:
+        st.markdown(f"### 👤 {func['nome']}")
+        st.caption(func["funcao"])
+        st.divider()
+        if st.button("🚪 Sair", use_container_width=True):
+            st.session_state["logado"] = False
+            st.session_state["usuario"] = None
+            st.rerun()
+
+    render_wpp_float()
+
+    if func["is_admin"]:
+        painel_admin(dados)
+    else:
+        painel_funcionario(usuario, func, dados)
 
 if __name__ == "__main__":
     main()
