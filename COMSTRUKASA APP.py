@@ -658,7 +658,7 @@ def painel_admin(dados):
             <div>
                 <div class="ph-name">Painel Administrativo</div>
                 <div class="ph-sub">🏗️ COMSTRUKASA</div>
-                <span class="ph-badge">{nome}</span>
+                <span class="ph-badge">GUSTAVO STEINWANDT V. SOARES</span>
             </div>
         </div>
     </div>
