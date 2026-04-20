@@ -1,0 +1,51 @@
+# 🏗️ COMSTRUKASA — Sistema Interno
+
+## Como rodar gratuitamente (Streamlit Community Cloud)
+
+### 1. Instalar localmente (para testar)
+```bash
+pip install streamlit pytz
+streamlit run comstrukasa_app.py
+```
+
+### 2. Publicar gratuitamente no Streamlit Cloud
+1. Crie uma conta em https://streamlit.io (gratuito)
+2. Crie um repositório no GitHub com os dois arquivos:
+   - `comstrukasa_app.py`
+   - `requirements.txt`
+3. No Streamlit Cloud, clique em **"New app"**
+4. Conecte seu repositório GitHub
+5. Pronto! Você terá um link público que funciona 24h
+
+---
+
+## Usuários do sistema
+
+| Usuário    | Senha       | Função                   |
+|------------|-------------|--------------------------|
+| admin      | admin       | Admin (Gustavo)          |
+| sueli      | maria1819   | Vendedora                |
+| leiliane   | camila      | Vendedora                |
+| riquele    | riquele24   | Zeladora                 |
+| wagner     | wagner007   | Assistente Administrativo|
+| agnaldo    | 99551264    | Auxiliar de Produção     |
+| rogerio    | 290580      | Motorista                |
+| samuel     | Sophia2710  | Serrador                 |
+
+---
+
+## Funcionalidades
+- ✅ Controle de horário (Seg–Sex 07:45–19:00 / Sáb 07:45–13:00)
+- ✅ Tela bloqueada fora do expediente
+- ✅ Botão WhatsApp flutuante com efeito
+- ✅ Livro Ponto Digital (Entrada, Saída Almoço, Retorno, Café, Saída)
+- ✅ Histórico de ponto por data
+- ✅ Envio de documentos (Atestado, Admissão, Demissão etc.) via WhatsApp
+- ✅ Salário visível por funcionário (conforme configurado)
+- ✅ Aviso de holerite ao fim do mês
+- ✅ Painel Admin completo (Gustavo) com visão de todos os funcionários
+
+---
+
+## Suporte
+WhatsApp: +55 41 99901-3074
