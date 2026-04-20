@@ -1082,122 +1082,48 @@ def render_sidebar(func, usuario):
         """, unsafe_allow_html=True)
         st.divider()
 
-        # Botão SAIR — link HTML direto, sem depender de seletor do Streamlit
+        # Botão SAIR — st.button com CSS ultra-específico injetado no <head>
         st.markdown("""
         <style>
-        @keyframes sair-shift {
+        @keyframes sair-grad {
             0%   { background-position: 0% 50%; }
             50%  { background-position: 100% 50%; }
             100% { background-position: 0% 50%; }
         }
-        @keyframes sair-ring {
-            0%   { box-shadow: 0 0 0 0 rgba(239,83,80,0.8), 0 4px 16px rgba(183,28,28,0.5); }
-            60%  { box-shadow: 0 0 0 10px rgba(239,83,80,0), 0 6px 24px rgba(183,28,28,0.7); }
-            100% { box-shadow: 0 0 0 0 rgba(239,83,80,0), 0 4px 16px rgba(183,28,28,0.5); }
+        @keyframes sair-glow {
+            0%,100% { box-shadow: 0 0 8px 2px rgba(239,83,80,0.6); }
+            50%      { box-shadow: 0 0 22px 6px rgba(239,83,80,0.95); }
         }
-        @keyframes sair-shake {
-            0%,100% { transform: rotate(0deg); }
-            20%      { transform: rotate(-6deg); }
-            40%      { transform: rotate(6deg); }
-            60%      { transform: rotate(-3deg); }
-            80%      { transform: rotate(3deg); }
-        }
-        .sair-btn {
-            display: block;
-            width: 100%;
-            background: linear-gradient(135deg, #c62828, #e53935, #ff5252, #e53935, #c62828);
-            background-size: 300% 300%;
-            animation: sair-shift 2.5s ease infinite, sair-ring 2s ease infinite;
-            color: white !important;
-            border: none;
-            border-radius: 14px;
-            padding: 13px 0;
-            font-family: 'Rajdhani', sans-serif;
-            font-weight: 800;
-            font-size: 1rem;
-            letter-spacing: 3px;
-            text-align: center;
-            cursor: pointer;
-            text-decoration: none !important;
-            margin-top: 4px;
-            transition: transform .15s;
-        }
-        .sair-btn:hover {
-            transform: translateY(-3px) scale(1.03);
-            filter: brightness(1.15);
-        }
-        .sair-icon {
-            display: inline-block;
-            animation: sair-shake 3s ease infinite;
-            margin-right: 6px;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-
-        # Usa um form para disparar rerun via submit
-        with st.form("logout_form", clear_on_submit=True):
-            submitted = st.form_submit_button(
-                "🚪  S A I R",
-                use_container_width=True,
-            )
-            if submitted:
-                logout()
-        # Sobrescreve visual do botão do form
-        st.markdown("""
-        <style>
-        div[data-testid="stSidebar"] [data-testid="stForm"] button {
-            background: linear-gradient(135deg,#c62828,#e53935,#ff5252,#e53935,#c62828) !important;
-            background-size: 300% 300% !important;
-            animation: sair-shift 2.5s ease infinite !important, sair-ring 2s ease infinite !important;
-            color: white !important;
-            border: none !important;
+        /* Mira o botão pela posição dentro da sidebar — funciona em qualquer versão */
+        section[data-testid="stSidebar"] div.stButton > button,
+        section[data-testid="stSidebar"] div.stButton > button:focus,
+        section[data-testid="stSidebar"] div.stButton > button:active {
+            background: linear-gradient(270deg, #7f0000, #c62828, #ef5350, #c62828, #7f0000) !important;
+            background-size: 400% 400% !important;
+            -webkit-animation: sair-grad 2.5s ease infinite, sair-glow 1.8s ease infinite !important;
+            animation: sair-grad 2.5s ease infinite, sair-glow 1.8s ease infinite !important;
+            color: #ffffff !important;
+            border: 1.5px solid rgba(255,100,100,0.5) !important;
             border-radius: 14px !important;
             font-family: 'Rajdhani', sans-serif !important;
             font-weight: 800 !important;
             font-size: 1rem !important;
-            letter-spacing: 3px !important;
-            padding: 13px 0 !important;
-            box-shadow: 0 4px 16px rgba(183,28,28,0.45) !important;
-            transition: transform .15s !important;
+            letter-spacing: 4px !important;
+            padding: 0.65rem 1rem !important;
+            width: 100% !important;
+            transition: transform .15s, filter .15s !important;
         }
-        div[data-testid="stSidebar"] [data-testid="stForm"] button:hover {
-            transform: translateY(-3px) scale(1.03) !important;
-            filter: brightness(1.2) !important;
+        section[data-testid="stSidebar"] div.stButton > button:hover {
+            transform: translateY(-3px) scale(1.04) !important;
+            filter: brightness(1.25) !important;
         }
-        div[data-testid="stSidebar"] [data-testid="stForm"] {
-            border: none !important;
-            padding: 0 !important;
-            background: transparent !important;
+        section[data-testid="stSidebar"] div.stButton > button p {
+            color: #ffffff !important;
+            font-weight: 800 !important;
+            letter-spacing: 4px !important;
         }
         </style>
         """, unsafe_allow_html=True)
 
-# ══════════════════════════════════════════════════════════
-# MAIN
-# ══════════════════════════════════════════════════════════
-def main():
-    dados = carregar_dados()
-
-    if "logado"  not in st.session_state: st.session_state["logado"]  = False
-    if "usuario" not in st.session_state: st.session_state["usuario"] = None
-
-    if not st.session_state["logado"]:
-        if not verificar_horario():
-            tela_bloqueio()
-        else:
-            tela_login()
-        return
-
-    usuario = st.session_state["usuario"]
-    func    = FUNCIONARIOS[usuario]
-
-    render_sidebar(func, usuario)
-    render_wpp_float()
-
-    if func["is_admin"]:
-        painel_admin(usuario, dados)
-    else:
-        painel_funcionario(usuario, func, dados)
-
-if __name__ == "__main__":
-    main()
+        if st.button("🚪  S A I R", use_container_width=True, key="btn_logout"):
+            logout()
