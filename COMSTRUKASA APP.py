@@ -2,7 +2,7 @@ import streamlit as st
 import json
 import os
 from datetime import datetime, date, time
-import pytz
+from zoneinfo import ZoneInfo
 import urllib.parse
 
 # ─────────────────────────────────────────────
@@ -314,7 +314,7 @@ def salvar_dados(dados):
 # HORÁRIO DE FUNCIONAMENTO
 # ─────────────────────────────────────────────
 def verificar_horario():
-    tz = pytz.timezone("America/Sao_Paulo")
+    tz = ZoneInfo("America/Sao_Paulo")
     agora = datetime.now(tz)
     dia = agora.weekday()   # 0=seg ... 6=dom
     hora = agora.time()
@@ -425,7 +425,7 @@ MARCACOES = ["Entrada", "Saída Almoço", "Retorno Almoço", "Saída Café", "Re
 EMOJIS_PONTO = {"Entrada":"🟢","Saída Almoço":"🍽️","Retorno Almoço":"🔄","Saída Café":"☕","Retorno Café":"🔄","Saída":"🔴"}
 
 def tela_ponto(usuario, dados):
-    tz = pytz.timezone("America/Sao_Paulo")
+    tz = ZoneInfo("America/Sao_Paulo")
     hoje = date.today().isoformat()
 
     if usuario not in dados["pontos"]:
