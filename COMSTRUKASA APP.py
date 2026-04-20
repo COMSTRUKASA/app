@@ -5,13 +5,17 @@ from datetime import datetime, date, time
 from zoneinfo import ZoneInfo
 import urllib.parse
 from io import BytesIO
-from reportlab.lib.pagesizes import A4
-from reportlab.lib import colors
-from reportlab.lib.units import mm
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable
-from reportlab.lib.styles import ParagraphStyle
-from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
-from reportlab.pdfgen import canvas as rl_canvas
+try:
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.lib.units import mm
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+    from reportlab.pdfgen import canvas as rl_canvas
+    REPORTLAB_OK = True
+except ImportError:
+    REPORTLAB_OK = False
 
 st.set_page_config(
     page_title="COMSTRUKASA",
@@ -785,14 +789,17 @@ def tela_ponto(usuario, dados):
         mes_idx   = st.selectbox("Mês", mes_nomes, index=mes_atual - 1, key=f"mes_{usuario}")
         mes_sel   = mes_nomes.index(mes_idx) + 1
 
-    pdf_bytes = gerar_pdf_mensal(dados, usuario, ano_sel, mes_sel)
-    st.download_button(
-        label=f"📄  Baixar PDF — {mes_idx} {ano_sel}",
-        data=pdf_bytes,
-        file_name=f"ponto_{FUNCIONARIOS[usuario]['nome'].split()[0].lower()}_{ano_sel}_{mes_sel:02d}.pdf",
-        mime="application/pdf",
-        use_container_width=True
-    )
+    if REPORTLAB_OK:
+        pdf_bytes = gerar_pdf_mensal(dados, usuario, ano_sel, mes_sel)
+        st.download_button(
+            label=f"📄  Baixar PDF — {mes_idx} {ano_sel}",
+            data=pdf_bytes,
+            file_name=f"ponto_{FUNCIONARIOS[usuario]['nome'].split()[0].lower()}_{ano_sel}_{mes_sel:02d}.pdf",
+            mime="application/pdf",
+            use_container_width=True
+        )
+    else:
+        st.warning("⚠️ Biblioteca de PDF não instalada. Verifique o requirements.txt.")
 
     # Histórico
     hist = {d: v for d, v in dados["pontos"].get(usuario, {}).items() if d != hoje}
