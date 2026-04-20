@@ -405,6 +405,7 @@ section[data-testid="stSidebar"] * { color: #888 !important; }
 FUNCIONARIOS = {
     "admin":    {"nome":"Gustavo Steinwandt Venturini Soares","funcao":"Assistente Administrativo","senha":"admin",      "salario":650.0,"meta":0,"comissao_pct":0,"mostrar_salario":True, "mostrar_meta":False,"mostrar_comissao":False,"holerite_aviso":False,"is_admin":True},
     "admin1":   {"nome":"Karen Steinwandt Venturini Soares","funcao":"GERENTE","senha":"admin",      "salario":0,"meta":0,"comissao_pct":0,"mostrar_salario":False, "mostrar_meta":False,"mostrar_comissao":False,"holerite_aviso":False,"is_admin":True},
+    "admin2":   {"nome":"Valdinei Rodrigues Soares","funcao":"GERENTE","senha":"admin",      "salario":0,"meta":0,"comissao_pct":0,"mostrar_salario":False, "mostrar_meta":False,"mostrar_comissao":False,"holerite_aviso":False,"is_admin":True},
     "sueli":    {"nome":"Sueli",   "funcao":"Vendedora",              "senha":"maria1819","salario":0,    "meta":0,"comissao_pct":0,"mostrar_salario":False,"mostrar_meta":False,"mostrar_comissao":False,"holerite_aviso":True, "is_admin":False},
     "leiliane": {"nome":"Leiliane","funcao":"Vendedora",              "senha":"camila",   "salario":0,    "meta":0,"comissao_pct":0,"mostrar_salario":False,"mostrar_meta":False,"mostrar_comissao":False,"holerite_aviso":True, "is_admin":False},
     "riquele":  {"nome":"Riquele", "funcao":"Zeladora",               "senha":"riquele24","salario":0,    "meta":0,"comissao_pct":0,"mostrar_salario":False,"mostrar_meta":False,"mostrar_comissao":False,"holerite_aviso":True, "is_admin":False},
@@ -500,8 +501,8 @@ def tela_login():
     </div>
     """, unsafe_allow_html=True)
 
-    usuario = st.text_input("Usuário", placeholder="admin, sueli, wagner, rogerio...")
-    st.markdown('<div class="login-hint">Use seu usuário de sistema (ex: admin, sueli, wagner, rogerio...)</div>', unsafe_allow_html=True)
+    usuario = st.text_input("Usuário", placeholder="leiliane, sueli, wagner, rogerio...")
+    st.markdown('<div class="login-hint">Use seu usuário de sistema (ex: leiliane, sueli, wagner, rogerio...)</div>', unsafe_allow_html=True)
     senha = st.text_input("Senha", type="password", placeholder="••••••••")
 
     if st.button("ENTRAR  →", use_container_width=True):
