@@ -404,6 +404,7 @@ section[data-testid="stSidebar"] * { color: #888 !important; }
 # ══════════════════════════════════════════════
 FUNCIONARIOS = {
     "admin":    {"nome":"Gustavo Steinwandt Venturini Soares","funcao":"Assistente Administrativo","senha":"admin",      "salario":650.0,"meta":0,"comissao_pct":0,"mostrar_salario":True, "mostrar_meta":False,"mostrar_comissao":False,"holerite_aviso":False,"is_admin":True},
+    "admin1":   {"nome":"Karen Steinwandt Venturini Soares","funcao":"GERENTE","senha":"admin",      "salario":0,"meta":0,"comissao_pct":0,"mostrar_salario":False, "mostrar_meta":False,"mostrar_comissao":False,"holerite_aviso":False,"is_admin":True},
     "sueli":    {"nome":"Sueli",   "funcao":"Vendedora",              "senha":"maria1819","salario":0,    "meta":0,"comissao_pct":0,"mostrar_salario":False,"mostrar_meta":False,"mostrar_comissao":False,"holerite_aviso":True, "is_admin":False},
     "leiliane": {"nome":"Leiliane","funcao":"Vendedora",              "senha":"camila",   "salario":0,    "meta":0,"comissao_pct":0,"mostrar_salario":False,"mostrar_meta":False,"mostrar_comissao":False,"holerite_aviso":True, "is_admin":False},
     "riquele":  {"nome":"Riquele", "funcao":"Zeladora",               "senha":"riquele24","salario":0,    "meta":0,"comissao_pct":0,"mostrar_salario":False,"mostrar_meta":False,"mostrar_comissao":False,"holerite_aviso":True, "is_admin":False},
