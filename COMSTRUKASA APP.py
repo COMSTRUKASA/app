@@ -187,7 +187,7 @@ div[data-baseweb="tab"] {
 # ─────────────────────────────────────────────
 FUNCIONARIOS = {
     "admin": {
-        "nome": "Gustavo Steinwandt Venturini Soares",
+        "nome": "Gustavo",
         "funcao": "Assistente Administrativo",
         "senha": "admin",
         "salario": 650.00,
