@@ -191,7 +191,7 @@ FUNCIONARIOS = {
     "admin": {
         "nome": "Gustavo Steinwandt Venturini Soares",
         "funcao": "Assistente Administrativo",
-        "senha": "admin",
+        "senha": "5711",
         "salario": 650.00,
         "meta": 0,
         "comissao_pct": 0,
